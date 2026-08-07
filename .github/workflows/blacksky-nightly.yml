@@ -15,7 +15,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: blacksky-nightly-${ github.repository }}
+  group: blacksky-nightly-${{ github.repository }}
   cancel-in-progress: false
 
 env:
@@ -45,8 +45,8 @@ jobs:
       - name: Sync exact upstream branch and decide whether to publish
         id: plan
         env:
-          FORCE_BUILD: ${ github.event_name == 'workflow_dispatch' && inputs.force || false }}
-          GH_TOKEN: ${ github.token }}
+          FORCE_BUILD: ${{ github.event_name == 'workflow_dispatch' && inputs.force || false }}
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
@@ -85,8 +85,8 @@ jobs:
       - name: Record successful no-op
         if: steps.plan.outputs.skip == 'true'
         env:
-          UPSTREAM_SHA: ${ steps.plan.outputs.upstream_sha }}
-          EXISTING_TAG: ${ steps.plan.outputs.existing_tag }}
+          UPSTREAM_SHA: ${{ steps.plan.outputs.upstream_sha }}
+          EXISTING_TAG: ${{ steps.plan.outputs.existing_tag }}
         run: |
           {
             echo "## Blacksky Nightly already current"
@@ -99,17 +99,17 @@ jobs:
         uses: actions/setup-java@ad2b38190b15e4d6bdf0c97fb4fca8412226d287 # v5.3.0
         with:
           distribution: temurin
-          java-version: ${ env.JAVA_VERSION }}
+          java-version: ${{ env.JAVA_VERSION }}
 
       - name: Derive signing certificate fingerprint
         if: steps.plan.outputs.skip != 'true'
         id: cert
         env:
-          KEYSTORE_B64: ${ secrets.NIGHTLY_KEYSTORE_B64 }}
-          KEYSTORE_PASSWORD: ${ secrets.NIGHTLY_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${ secrets.NIGHTLY_KEY_ALIAS }}
-          KEY_PASSWORD: ${ secrets.NIGHTLY_KEY_PASSWORD }}
-          EXPECTED_CERT_SHA256: ${ vars.NIGHTLY_CERT_SHA256 }}
+          KEYSTORE_B64: ${{ secrets.NIGHTLY_KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.NIGHTLY_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.NIGHTLY_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.NIGHTLY_KEY_PASSWORD }}
+          EXPECTED_CERT_SHA256: ${{ vars.NIGHTLY_CERT_SHA256 }}
         shell: bash
         run: |
           set -euo pipefail
@@ -146,8 +146,8 @@ jobs:
         if: steps.plan.outputs.skip != 'true'
         id: source
         env:
-          CERT_SHA256: ${ steps.cert.outputs.sha256 }}
-          UPSTREAM_SHA: ${ steps.plan.outputs.upstream_sha }}
+          CERT_SHA256: ${{ steps.cert.outputs.sha256 }}
+          UPSTREAM_SHA: ${{ steps.plan.outputs.upstream_sha }}
         shell: bash
         run: |
           set -euo pipefail
@@ -214,7 +214,7 @@ jobs:
         if: steps.plan.outputs.skip != 'true'
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
-          node-version: ${ env.NODE_VERSION }}
+          node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
@@ -224,7 +224,7 @@ jobs:
 
       - name: Install dependencies and compile translations
         if: steps.plan.outputs.skip != 'true'
-        working-directory: ${ steps.source.outputs.worktree }}
+        working-directory: ${{ steps.source.outputs.worktree }}
         env:
           CI: "true"
         run: |
@@ -233,22 +233,22 @@ jobs:
 
       - name: Run lint and type checks
         if: steps.plan.outputs.skip != 'true'
-        working-directory: ${ steps.source.outputs.worktree }}
+        working-directory: ${{ steps.source.outputs.worktree }}
         run: |
           pnpm lint
           pnpm typecheck
 
       - name: Generate and validate native Android project
         if: steps.plan.outputs.skip != 'true'
-        working-directory: ${ steps.source.outputs.worktree }}
+        working-directory: ${{ steps.source.outputs.worktree }}
         env:
           CI: "true"
           EXPO_PUBLIC_ENV: production
-          EXPO_PUBLIC_RELEASE_VERSION: ${ steps.source.outputs.version_name }}
-          EXPO_PUBLIC_BUNDLE_IDENTIFIER: ${ steps.plan.outputs.upstream_sha }}
-          EXPO_PUBLIC_BUNDLE_DATE: ${ steps.source.outputs.bundle_date }}
-          VERSION_NAME: ${ steps.source.outputs.version_name }}
-          VERSION_CODE: ${ steps.source.outputs.version_code }}
+          EXPO_PUBLIC_RELEASE_VERSION: ${{ steps.source.outputs.version_name }}
+          EXPO_PUBLIC_BUNDLE_IDENTIFIER: ${{ steps.plan.outputs.upstream_sha }}
+          EXPO_PUBLIC_BUNDLE_DATE: ${{ steps.source.outputs.bundle_date }}
+          VERSION_NAME: ${{ steps.source.outputs.version_name }}
+          VERSION_CODE: ${{ steps.source.outputs.version_code }}
         shell: bash
         run: |
           set -euo pipefail
@@ -262,13 +262,13 @@ jobs:
       - name: Build one unsigned universal APK
         if: steps.plan.outputs.skip != 'true'
         id: build
-        working-directory: ${ steps.source.outputs.worktree }}
+        working-directory: ${{ steps.source.outputs.worktree }}
         env:
           CI: "true"
           EXPO_PUBLIC_ENV: production
-          EXPO_PUBLIC_RELEASE_VERSION: ${ steps.source.outputs.version_name }}
-          EXPO_PUBLIC_BUNDLE_IDENTIFIER: ${ steps.plan.outputs.upstream_sha }}
-          EXPO_PUBLIC_BUNDLE_DATE: ${ steps.source.outputs.bundle_date }}
+          EXPO_PUBLIC_RELEASE_VERSION: ${{ steps.source.outputs.version_name }}
+          EXPO_PUBLIC_BUNDLE_IDENTIFIER: ${{ steps.plan.outputs.upstream_sha }}
+          EXPO_PUBLIC_BUNDLE_DATE: ${{ steps.source.outputs.bundle_date }}
         shell: bash
         run: |
           set -euo pipefail
@@ -291,14 +291,14 @@ jobs:
         if: steps.plan.outputs.skip != 'true'
         id: sign
         env:
-          KEYSTORE_B64: ${ secrets.NIGHTLY_KEYSTORE_B64 }}
-          KEYSTORE_PASSWORD: ${ secrets.NIGHTLY_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${ secrets.NIGHTLY_KEY_ALIAS }}
-          KEY_PASSWORD: ${ secrets.NIGHTLY_KEY_PASSWORD }}
-          CERT_SHA256: ${ steps.cert.outputs.sha256 }}
-          VERSION_NAME: ${ steps.source.outputs.version_name }}
-          VERSION_CODE: ${ steps.source.outputs.version_code }}
-          ARTIFACT_DIR: ${ steps.build.outputs.artifact_dir }}
+          KEYSTORE_B64: ${{ secrets.NIGHTLY_KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.NIGHTLY_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.NIGHTLY_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.NIGHTLY_KEY_PASSWORD }}
+          CERT_SHA256: ${{ steps.cert.outputs.sha256 }}
+          VERSION_NAME: ${{ steps.source.outputs.version_name }}
+          VERSION_CODE: ${{ steps.source.outputs.version_code }}
+          ARTIFACT_DIR: ${{ steps.build.outputs.artifact_dir }}
         shell: bash
         run: |
           set -euo pipefail
@@ -343,16 +343,16 @@ jobs:
       - name: Push branded source refs and publish release
         if: steps.plan.outputs.skip != 'true'
         env:
-          GH_TOKEN: ${ github.token }}
-          ARTIFACT_DIR: ${ steps.build.outputs.artifact_dir }}
-          APK_SHA256: ${ steps.sign.outputs.apk_sha256 }}
-          BUILD_DATE_ISO: ${ steps.source.outputs.build_date_iso }}
-          BRANDED_SHA: ${ steps.source.outputs.branded_sha }}
-          CERT_SHA256: ${ steps.cert.outputs.sha256 }}
-          TAG: ${ steps.source.outputs.tag }}
-          UPSTREAM_SHA: ${ steps.plan.outputs.upstream_sha }}
-          VERSION_CODE: ${ steps.source.outputs.version_code }}
-          VERSION_NAME: ${ steps.source.outputs.version_name }}
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_DIR: ${{ steps.build.outputs.artifact_dir }}
+          APK_SHA256: ${{ steps.sign.outputs.apk_sha256 }}
+          BUILD_DATE_ISO: ${{ steps.source.outputs.build_date_iso }}
+          BRANDED_SHA: ${{ steps.source.outputs.branded_sha }}
+          CERT_SHA256: ${{ steps.cert.outputs.sha256 }}
+          TAG: ${{ steps.source.outputs.tag }}
+          UPSTREAM_SHA: ${{ steps.plan.outputs.upstream_sha }}
+          VERSION_CODE: ${{ steps.source.outputs.version_code }}
+          VERSION_NAME: ${{ steps.source.outputs.version_name }}
         shell: bash
         run: |
           set -euo pipefail
@@ -393,7 +393,7 @@ jobs:
       - name: Retain the latest 30 nightly releases
         if: steps.plan.outputs.skip != 'true'
         env:
-          GH_TOKEN: ${ github.token }}
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
@@ -412,12 +412,12 @@ jobs:
       - name: Summarize published nightly
         if: steps.plan.outputs.skip != 'true'
         env:
-          APK_SHA256: ${ steps.sign.outputs.apk_sha256 }}
-          BRANDED_SHA: ${ steps.source.outputs.branded_sha }}
-          TAG: ${ steps.source.outputs.tag }}
-          UPSTREAM_SHA: ${ steps.plan.outputs.upstream_sha }}
-          VERSION_CODE: ${ steps.source.outputs.version_code }}
-          VERSION_NAME: ${ steps.source.outputs.version_name }}
+          APK_SHA256: ${{ steps.sign.outputs.apk_sha256 }}
+          BRANDED_SHA: ${{ steps.source.outputs.branded_sha }}
+          TAG: ${{ steps.source.outputs.tag }}
+          UPSTREAM_SHA: ${{ steps.plan.outputs.upstream_sha }}
+          VERSION_CODE: ${{ steps.source.outputs.version_code }}
+          VERSION_NAME: ${{ steps.source.outputs.version_name }}
         run: |
           {
             echo "## Published Blacksky Nightly"
@@ -432,7 +432,7 @@ jobs:
       - name: Remove temporary worktree
         if: always() && steps.source.outputs.worktree != ''
         env:
-          WORKTREE: ${ steps.source.outputs.worktree }}
+          WORKTREE: ${{ steps.source.outputs.worktree }}
         shell: bash
         run: |
           set -euo pipefail
