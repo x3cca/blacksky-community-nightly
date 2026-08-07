@@ -1,3 +1,57 @@
+# Blacksky Android Nightly
+
+> [!WARNING]
+> These are **unofficial automated nightly builds** from Blacksky's public
+> `main` branch. They are not endorsed by Blacksky Algorithms and may be
+> unstable.
+
+This repository tracks
+[`blacksky-algorithms/blacksky.community`](https://github.com/blacksky-algorithms/blacksky.community)
+and publishes a signed universal Android APK whenever upstream changes. The
+official Blacksky beta remains available on
+[Google Play](https://play.google.com/store/apps/details?id=community.blacksky.app).
+
+## Install with Obtainium
+
+- Repository URL: `https://github.com/x3cca/blacksky-community-nightly`
+- Recommended asset regex: `blacksky-nightly-universal\.apk`
+
+Add the repository URL to Obtainium, set the asset regex above, and install the
+latest `blacksky-nightly-universal.apk` release asset. Later nightlies update
+normally because every release uses the same persistent signing key.
+
+The nightly's application ID is `community.blacksky.app.nightly`, so it can be
+installed alongside the official app. The installations have separate
+accounts, app data, settings, permissions, and notifications. Its launcher
+keeps the Blacksky glyph but uses the same diagonal purple-to-blue gradient as
+the Bitchat nightly, making the two Blacksky installations easy to distinguish.
+
+## Source, automation, and verification
+
+The default `main` branch contains the automation and deterministic branding
+overlay. `upstream-main` is force-synced to the exact unmodified Blacksky
+commit; `nightly-build` points to the branded source used for the latest APK.
+Every release has an immutable `nightly-*` source tag.
+
+The workflow checks daily at 09:20 UTC and can be dispatched manually. It
+generates the Expo Android project locally, disables official OTA updates,
+runs lint and type checks, builds one release APK, signs it with the persistent
+nightly key, and verifies its package ID, app label, version, checksum, and
+signer before publication. Releases retain the latest 30 APKs.
+
+Signing certificate SHA-256:
+
+```text
+c0053775540ff795b840b0a51150600dfd1ca85779768ff6c5dd418c4e60cfcd
+```
+
+The source remains under the upstream MIT license. Reproduce a problem on an
+official Blacksky build before reporting it upstream.
+
+---
+
+## Upstream README
+
 # blacksky.community
 
 **blacksky.community** is a community-driven fork of the official Bluesky Social client.  

@@ -38,6 +38,10 @@ node_modules/
 npm-debug.log
 yarn-error.log
 
+# Python tooling
+__pycache__/
+*.py[cod]
+
 # BUCK
 buck-out/
 \.buckd/
