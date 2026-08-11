@@ -48,7 +48,7 @@ module.exports = function (_config) {
   return {
     expo: {
       version: VERSION,
-      name: 'Blacksky',
+      name: 'Blacksky Nightly',
       slug: 'blacksky',
       scheme: ['blacksky', 'community.blacksky'],
       owner: 'blacksky-algorithms',
@@ -192,14 +192,15 @@ module.exports = function (_config) {
         barStyle: 'light-content',
       },
       android: {
-        icon: './assets/app-icons/android_icon_default_next.png',
+        icon: './assets/app-icons/android_icon_nightly.png',
         adaptiveIcon: {
           foregroundImage: './assets/icon-android-foreground.png',
           monochromeImage: './assets/icon-android-monochrome.png',
-          backgroundColor: '#000000',
+          backgroundImage: './assets/icon-android-background-nightly.png',
         },
         googleServicesFile: './google-services.json',
-        package: 'community.blacksky.app',
+        package: 'community.blacksky.app.nightly',
+        versionCode: 2000000007,
         intentFilters: [
           {
             action: 'VIEW',
@@ -227,7 +228,7 @@ module.exports = function (_config) {
       },
       updates: {
         url: 'https://updates.blacksky.community/manifest',
-        enabled: true,
+        enabled: false,
         fallbackToCacheTimeout: 30000,
         // OTA manifest code signing is only applied on EAS builds (which have the
         // private key as a managed secret). Local dev builds omit it so developers
