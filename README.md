@@ -28,10 +28,11 @@ the Bitchat nightly, making the two Blacksky installations easy to distinguish.
 
 ## Source, automation, and verification
 
-The default `main` branch contains the automation and deterministic branding
-overlay. `upstream-main` is force-synced to the exact unmodified Blacksky
-commit; `nightly-build` points to the branded source used for the latest APK.
-Every release has an immutable `nightly-*` source tag.
+The default `main` branch periodically merges upstream code while retaining
+this repository's workflows and deterministic branding overlay.
+`nightly-build` points to the branded source used for the latest APK. Every
+release records the exact unmodified upstream commit and has an immutable
+`nightly-*` source tag.
 
 The workflow checks daily at 09:20 UTC and can be dispatched manually. It
 generates the Expo Android project locally, disables official OTA updates,

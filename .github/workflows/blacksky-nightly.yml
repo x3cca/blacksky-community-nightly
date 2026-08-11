@@ -58,10 +58,6 @@ jobs:
           git fetch --force origin '+refs/tags/nightly-*:refs/tags/nightly-*' || true
           upstream_sha="$(git rev-parse "upstream/$UPSTREAM_BRANCH")"
 
-          git config --local credential.helper '!f() { test "$1" = get || exit 0; echo username=x-access-token; echo "password=$GH_TOKEN"; }; f'
-          trap 'git config --local --unset-all credential.helper >/dev/null 2>&1 || true' EXIT
-          git push --force origin "refs/remotes/upstream/$UPSTREAM_BRANCH:refs/heads/upstream-main"
-
           existing_tag=""
           while IFS= read -r tag; do
             if git show -s --format=%B "$tag" | grep -Fqx "Upstream-Commit: $upstream_sha" &&
