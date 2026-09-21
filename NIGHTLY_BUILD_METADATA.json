@@ -1,0 +1,18 @@
+{
+  "adaptiveForegroundSha256": "86643609d99187d20a16c1dc95d980b388f03445edf303b061998dd49398391f",
+  "adaptiveMonochromeSha256": "86643609d99187d20a16c1dc95d980b388f03445edf303b061998dd49398391f",
+  "applicationId": "community.blacksky.app.nightly",
+  "branding": "Blacksky Nightly",
+  "iconGradient": {
+    "end": "#072A4A",
+    "start": "#160A2B"
+  },
+  "otaUpdatesEnabled": false,
+  "releaseAsset": "blacksky-nightly-universal.apk",
+  "releaseRepository": "x3cca/blacksky-community-nightly",
+  "schemaVersion": 1,
+  "signingCertificateSha256": "c0053775540ff795b840b0a51150600dfd1ca85779768ff6c5dd418c4e60cfcd",
+  "upstreamCommit": "cd2669596feef5556abe74ae8ce1eeeaa7e8194e",
+  "versionCode": 2000000050,
+  "versionName": "1.130.3-nightly.20260921.cd26695"
+}
