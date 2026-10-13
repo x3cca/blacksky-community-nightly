@@ -1,6 +1,6 @@
 {
   "name": "blacksky.community",
-  "version": "1.132.0",
+  "version": "1.132.0-nightly.20261013.3798319",
   "private": true,
   "packageManager": "pnpm@11.7.0",
   "engines": {
