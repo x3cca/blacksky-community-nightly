@@ -260,11 +260,46 @@ jobs:
             --version-name "$VERSION_NAME" \
             --version-code "$VERSION_CODE"
 
+      # React Native builds Hermes from source here. Its Gradle unzip task only
+      # strips a `facebook-hermes-<sha>/` tarball prefix, but the repo moved to
+      # meta/hermes and GitHub tarballs now use `meta-hermes-<sha>/`, leaving
+      # sdks/hermes without a top-level CMakeLists.txt. Fetch the pinned Hermes
+      # source ourselves and point the build at it.
+      - name: Fetch pinned Hermes source
+        if: steps.plan.outputs.skip != 'true'
+        id: hermes
+        working-directory: ${{ steps.source.outputs.worktree }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          hermes_version="$(tr -d '[:space:]' < node_modules/react-native/sdks/.hermesversion)"
+          if ! [[ "$hermes_version" =~ ^hermes-[A-Za-z0-9._-]+-([0-9a-f]{40})$ ]]; then
+            echo "error: unexpected Hermes version '$hermes_version'" >&2
+            exit 1
+          fi
+          expected_sha="${BASH_REMATCH[1]}"
+          tag_sha="$(gh api "repos/meta/hermes/commits/$hermes_version" --jq .sha)"
+          if [ "$tag_sha" != "$expected_sha" ]; then
+            echo "error: Hermes tag $hermes_version resolves to $tag_sha, expected $expected_sha" >&2
+            exit 1
+          fi
+          hermes_dir="$RUNNER_TEMP/hermes-source"
+          rm -rf -- "$hermes_dir"
+          mkdir -p "$hermes_dir"
+          curl --fail --location --retry 5 --silent --show-error \
+            "https://codeload.github.com/meta/hermes/tar.gz/$expected_sha" |
+            tar -xz --strip-components=1 -C "$hermes_dir"
+          test -f "$hermes_dir/CMakeLists.txt"
+          echo "dir=$hermes_dir" >> "$GITHUB_OUTPUT"
+
       - name: Build one unsigned universal APK
         if: steps.plan.outputs.skip != 'true'
         id: build
         working-directory: ${{ steps.source.outputs.worktree }}
         env:
+          REACT_NATIVE_OVERRIDE_HERMES_DIR: ${{ steps.hermes.outputs.dir }}
           CI: "true"
           EXPO_PUBLIC_ENV: production
           EXPO_PUBLIC_RELEASE_VERSION: ${{ steps.source.outputs.version_name }}
