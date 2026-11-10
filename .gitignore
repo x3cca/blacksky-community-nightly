@@ -115,8 +115,8 @@ google-services.json
 # Performance results (Flashlight)
 .perf/
 
-# ESLint
-.eslintcache
+# Oxlint
+.oxlintcache
 
 # i18n
 src/locale/locales/_build/
@@ -147,3 +147,6 @@ CLAUDE.md
 # superpowers plugin plans/specs — local-only workspace
 docs/superpowers/
 .claude/worktrees
+
+# pnpm
+.pnpm-store/
