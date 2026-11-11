@@ -162,7 +162,7 @@ jobs:
 
           # Keep the newest 30 nightlies.
           gh release list -R "$GITHUB_REPOSITORY" -L 200 --json tagName,createdAt \
-            -q 'sort_by(.createdAt) | reverse | .[30:] | .[].tagName' |
-            grep '^nightly-' | while read -r old; do
+            -q 'sort_by(.createdAt) | reverse | .[30:] | .[].tagName | select(startswith("nightly-"))' |
+            while read -r old; do
               gh release delete "$old" -R "$GITHUB_REPOSITORY" -y --cleanup-tag
             done
