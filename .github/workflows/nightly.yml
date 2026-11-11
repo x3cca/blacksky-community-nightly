@@ -1,0 +1,168 @@
+name: Blacksky Nightly
+
+on:
+  schedule:
+    - cron: "20 9 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Build even if this upstream commit was already released
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+env:
+  UPSTREAM: blacksky-algorithms/blacksky.community
+  APP_ID: community.blacksky.app.nightly
+  APK: blacksky-nightly-universal.apk
+
+jobs:
+  nightly:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - name: Check out this repo
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - name: Find upstream commit
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FORCE: ${{ inputs.force || false }}
+        run: |
+          set -euo pipefail
+          sha="$(git ls-remote "https://github.com/$UPSTREAM.git" refs/heads/main | cut -f1)"
+          short="${sha:0:12}"
+          if [ "$FORCE" != true ] &&
+            gh release list -R "$GITHUB_REPOSITORY" -L 50 --json tagName -q '.[].tagName' | grep -q -- "-$short"; then
+            echo "Upstream $short already released."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Android needs versionCode to always increase: use minutes since 2026-01-01.
+          code=$(( 2000000000 + ($(date -u +%s) - $(date -u -d 2026-01-01 +%s)) / 60 ))
+          {
+            echo "UPSTREAM_SHA=$sha"
+            echo "TAG=nightly-$(date -u +%Y%m%d-%H%M)-$short"
+            echo "NIGHTLY_VERSION_CODE=$code"
+          } >> "$GITHUB_ENV"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Check out upstream
+        if: steps.plan.outputs.skip != 'true'
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          repository: ${{ env.UPSTREAM }}
+          ref: ${{ env.UPSTREAM_SHA }}
+          path: app
+          persist-credentials: false
+
+      - name: Apply nightly overlay
+        if: steps.plan.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          nightly/apply.sh app
+          version="$(node -p "require('./app/package.json').version")-nightly.$(date -u +%Y%m%d).${UPSTREAM_SHA:0:7}"
+          {
+            echo "NIGHTLY_VERSION_NAME=$version"
+            echo "EXPO_PUBLIC_ENV=production"
+            echo "EXPO_PUBLIC_RELEASE_VERSION=$version"
+            echo "EXPO_PUBLIC_BUNDLE_IDENTIFIER=$UPSTREAM_SHA"
+            echo "EXPO_PUBLIC_BUNDLE_DATE=$(date -u +%y%m%d%H)"
+          } >> "$GITHUB_ENV"
+
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        if: steps.plan.outputs.skip != 'true'
+        with:
+          package_json_file: app/package.json
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        if: steps.plan.outputs.skip != 'true'
+        with:
+          node-version-file: app/package.json
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+
+      - uses: actions/setup-java@ad2b38190b15e4d6bdf0c97fb4fca8412226d287 # v5.3.0
+        if: steps.plan.outputs.skip != 'true'
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+        if: steps.plan.outputs.skip != 'true'
+
+      - name: Build APK
+        if: steps.plan.outputs.skip != 'true'
+        working-directory: app
+        env:
+          CI: "true"
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+          pnpm intl:compile
+          pnpm prebuild --platform android --no-install
+          ./android/gradlew -p android --no-daemon :app:assembleRelease
+
+      - name: Sign and check APK
+        if: steps.plan.outputs.skip != 'true'
+        env:
+          KEYSTORE_B64: ${{ secrets.NIGHTLY_KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.NIGHTLY_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.NIGHTLY_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.NIGHTLY_KEY_PASSWORD }}
+          EXPECTED_CERT: ${{ vars.NIGHTLY_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          tools="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          apks=(app/android/app/build/outputs/apk/release/*.apk)
+          [ "${#apks[@]}" -eq 1 ] || { echo "expected one APK, got: ${apks[*]}" >&2; exit 1; }
+          keys="$(mktemp -d)"; trap 'rm -rf "$keys"' EXIT
+          printf '%s' "$KEYSTORE_B64" | base64 -d > "$keys/ks.p12"
+          mkdir -p out
+          "$tools/zipalign" -P 16 -f 4 "${apks[0]}" "$keys/aligned.apk"
+          # Replaces the debug signature Expo's template applies to release builds.
+          "$tools/apksigner" sign --ks "$keys/ks.p12" --ks-type PKCS12 \
+            --ks-key-alias "$KEY_ALIAS" --ks-pass env:KEYSTORE_PASSWORD --key-pass env:KEY_PASSWORD \
+            --v4-signing-enabled false --out "out/$APK" "$keys/aligned.apk"
+
+          cert="$("$tools/apksigner" verify --print-certs "out/$APK" | sed -n 's/.*certificate SHA-256 digest: //p' | head -1)"
+          [ "$cert" = "${EXPECTED_CERT,,}" ] || { echo "signer $cert != expected $EXPECTED_CERT" >&2; exit 1; }
+          badging="$("$tools/aapt2" dump badging "out/$APK" | head -1)"
+          echo "$badging"
+          grep -q "name='$APP_ID' versionCode='$NIGHTLY_VERSION_CODE'" <<<"$badging" ||
+            { echo "unexpected package/version" >&2; exit 1; }
+          (cd out && sha256sum "$APK" > SHA256SUMS && cat SHA256SUMS)
+
+      - name: Publish release
+        if: steps.plan.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cat > notes.md <<NOTES
+          Unofficial automated nightly of Blacksky. Not endorsed by Blacksky Algorithms; may be unstable.
+
+          - Upstream commit: https://github.com/$UPSTREAM/commit/$UPSTREAM_SHA
+          - Version: $NIGHTLY_VERSION_NAME ($NIGHTLY_VERSION_CODE)
+          - APK SHA-256: $(cut -d' ' -f1 out/SHA256SUMS)
+          - Signing certificate SHA-256: ${{ vars.NIGHTLY_CERT_SHA256 }}
+          NOTES
+          gh release create "$TAG" "out/$APK" out/SHA256SUMS -R "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" --title "Blacksky Nightly $(date -u +%F) (${UPSTREAM_SHA:0:7})" \
+            --notes-file notes.md --latest
+
+          # Keep the newest 30 nightlies.
+          gh release list -R "$GITHUB_REPOSITORY" -L 200 --json tagName,createdAt \
+            -q 'sort_by(.createdAt) | reverse | .[30:] | .[].tagName' |
+            grep '^nightly-' | while read -r old; do
+              gh release delete "$old" -R "$GITHUB_REPOSITORY" -y --cleanup-tag
+            done
