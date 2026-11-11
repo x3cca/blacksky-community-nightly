@@ -60,7 +60,12 @@ jobs:
             [ "$merge_status" -ne 0 ] || merge_status=1
             exit "$merge_status"
           fi
-          git restore --source=HEAD --staged --worktree -- .github/workflows
+          # Keep our workflows exactly as they are on main. `git restore` refuses
+          # unmerged paths that main deleted (modify/delete conflicts), so drop
+          # every index entry under .github/workflows and check out main's copy.
+          git rm -r -q --cached -f --ignore-unmatch -- .github/workflows
+          rm -rf -- .github/workflows
+          git checkout HEAD -- .github/workflows
           if [ -n "$(git diff --name-only --diff-filter=U)" ]; then
             echo "error: upstream merge has conflicts outside .github/workflows" >&2
             git diff --name-only --diff-filter=U >&2
